@@ -1805,872 +1805,873 @@ var $builtinmodule = function(name) {
 
   // import numpy
   var CLASS_NDARRAY = "numpy.ndarray"; // maybe make identifier accessible in numpy module
-  var np = Sk.importModule("numpy");
-  var ndarray_f = np['$d'].array.func_code;
-  var getitem_f = np['$d'][CLASS_NDARRAY]['__getitem__'].func_code;
-  var ndarray = Sk.misceval.callsim(np['$d'].array.func_code, new Sk.builtin.list([1,2,3,4]));
+  return Sk.misceval.chain(Sk.importModule("numpy"), function(np) {
+    var ndarray_f = np['$d'].array.func_code;
+    var getitem_f = np['$d'][CLASS_NDARRAY]['__getitem__'].func_code;
+    var ndarray = Sk.misceval.callsim(np['$d'].array.func_code, new Sk.builtin.list([1,2,3,4]));
 
-  var create_chart = function() {
-    /* test if Canvas ist available should be moved to create_chart function */
-    if (Sk.canvas === undefined) {
-      throw new Sk.builtin.NameError(
-        "Can not resolve drawing area. Sk.canvas is undefined!");
-    }
+    var create_chart = function() {
+      /* test if Canvas ist available should be moved to create_chart function */
+      if (Sk.canvas === undefined) {
+        throw new Sk.builtin.NameError(
+          "Can not resolve drawing area. Sk.canvas is undefined!");
+      }
 
-    if ($('#' + Sk.canvas).length === 0) {
-      throw new Sk.builtin.OperationError("No canvas found (internal error)");
-    }
+      if ($('#' + Sk.canvas).length === 0) {
+        throw new Sk.builtin.OperationError("No canvas found (internal error)");
+      }
 
-    if (!chart) {
-      $('#' + Sk.canvas).empty();
-      // min height and width
-      chart = jsplotlib.make_chart(600, 600, "#" + Sk.canvas);
-    }
-  };
+      if (!chart) {
+        $('#' + Sk.canvas).empty();
+        // min height and width
+        chart = jsplotlib.make_chart(600, 600, "#" + Sk.canvas);
+      }
+    };
 
-  var plot_f = function(kwa) {
-    // http://matplotlib.org/api/pyplot_api.html
-    // http://matplotlib.org/api/artist_api.html#matplotlib.lines.Line2D
-    //debugger;
-    Sk.builtin.pyCheckArgs("plotk", arguments, 1, Infinity, true, false);
-    args = Array.prototype.slice.call(arguments, 1);
-    kwargs = new Sk.builtins.dict(kwa); // is pretty useless for handling kwargs
-    kwargs = Sk.ffi.remapToJs(kwargs); // create a proper dict
+    var plot_f = function(kwa) {
+      // http://matplotlib.org/api/pyplot_api.html
+      // http://matplotlib.org/api/artist_api.html#matplotlib.lines.Line2D
+      //debugger;
+      Sk.builtin.pyCheckArgs("plotk", arguments, 1, Infinity, true, false);
+      args = Array.prototype.slice.call(arguments, 1);
+      kwargs = new Sk.builtins.dict(kwa); // is pretty useless for handling kwargs
+      kwargs = Sk.ffi.remapToJs(kwargs); // create a proper dict
 
-    // try parsing plot args
-    // possible xdata, ydata, stylestring
-    // or x1, y1, stylestring1, x2, y2, stylestring2
-    // or ydata, stylestring
-    /*
-      plot(x, y)        # plot x and y using default line style and color
-      plot(x, y, 'bo')  # plot x and y using blue circle markers
-      plot(y)           # plot y using x as index array 0..N-1
-      plot(y, 'r+')     # ditto, but with red plusses
-    */
+      // try parsing plot args
+      // possible xdata, ydata, stylestring
+      // or x1, y1, stylestring1, x2, y2, stylestring2
+      // or ydata, stylestring
+      /*
+        plot(x, y)        # plot x and y using default line style and color
+        plot(x, y, 'bo')  # plot x and y using blue circle markers
+        plot(y)           # plot y using x as index array 0..N-1
+        plot(y, 'r+')     # ditto, but with red plusses
+      */
 
-    // variable definitions for args
-    var xdata = []; // actually x and y data may contain multiple lines
-    var ydata = [];
-    var stylestring = []; // we support only one at the moment
-    var i = 0;
-    var lines = 0;
-    var xdata_not_ydata_flag = true;
-    var slice = new Sk.builtin.slice(0, undefined, 1); // getting complete first dimension of ndarray
+      // variable definitions for args
+      var xdata = []; // actually x and y data may contain multiple lines
+      var ydata = [];
+      var stylestring = []; // we support only one at the moment
+      var i = 0;
+      var lines = 0;
+      var xdata_not_ydata_flag = true;
+      var slice = new Sk.builtin.slice(0, undefined, 1); // getting complete first dimension of ndarray
 
-    for (i = 0; i < args.length; i++) {
-      if (args[i] instanceof Sk.builtin.list || Sk.abstr.typeName(args[i]) === CLASS_NDARRAY) {
-        // special treatment for ndarrays, though we allow basic lists too
-        var _unpacked;
-        if(Sk.abstr.typeName(args[i]) === CLASS_NDARRAY) {
-          // we get the first dimension, no 2-dim data
-          _unpacked = Sk.ffi.unwrapn(args[i]);
-          var first_dim_size = 0;
-          if(_unpacked && _unpacked.shape && _unpacked.shape[0]){
-            first_dim_size = _unpacked.shape[0];
+      for (i = 0; i < args.length; i++) {
+        if (args[i] instanceof Sk.builtin.list || Sk.abstr.typeName(args[i]) === CLASS_NDARRAY) {
+          // special treatment for ndarrays, though we allow basic lists too
+          var _unpacked;
+          if(Sk.abstr.typeName(args[i]) === CLASS_NDARRAY) {
+            // we get the first dimension, no 2-dim data
+            _unpacked = Sk.ffi.unwrapn(args[i]);
+            var first_dim_size = 0;
+            if(_unpacked && _unpacked.shape && _unpacked.shape[0]){
+              first_dim_size = _unpacked.shape[0];
+            } else {
+              throw new Sk.builtin.ValueError('args contain "' + CLASS_NDARRAY + '" without elements or malformed shape.');
+            }
+            _unpacked = _unpacked.buffer.slice(0, first_dim_size); // buffer array of first dimension
+            _unpacked = _unpacked.map(function(x) { return Sk.ffi.remapToJs(x);})
           } else {
-            throw new Sk.builtin.ValueError('args contain "' + CLASS_NDARRAY + '" without elements or malformed shape.');
+            _unpacked = Sk.ffi.remapToJs(args[i]);
           }
-          _unpacked = _unpacked.buffer.slice(0, first_dim_size); // buffer array of first dimension
-          _unpacked = _unpacked.map(function(x) { return Sk.ffi.remapToJs(x);})
-        } else {
-          _unpacked = Sk.ffi.remapToJs(args[i]);
-        }
 
-        // unwraps x and y, but no 2-dim-data
-        if (xdata_not_ydata_flag) {
-          xdata.push(_unpacked);
-          xdata_not_ydata_flag = false;
-        } else {
-          ydata.push(_unpacked);
-          xdata_not_ydata_flag = true;
-        }
-      } else if (Sk.builtin.checkString(args[i])) {
-        stylestring.push(Sk.ffi.remapToJs(args[i]));
-      } else if (Sk.builtin.checkNumber(args[i])) {
-          _unpacked = Sk.ffi.remapToJs(args[i]);
-          var tempArray = [];
-          tempArray.push(_unpacked);
-          /**
-           * Why do we need to push an single item array?
-           *
-           * Each Line is represented as an array of x values and an array of y values
-           * so just calling plot with (x, y, fmt) would result in Line2D([x], [y], fmt)
-           */
+          // unwraps x and y, but no 2-dim-data
           if (xdata_not_ydata_flag) {
-            xdata.push(tempArray);
+            xdata.push(_unpacked);
             xdata_not_ydata_flag = false;
           } else {
-            ydata.push(tempArray);
+            ydata.push(_unpacked);
             xdata_not_ydata_flag = true;
           }
-      } else {
-        throw new Sk.builtin.TypeError("'" + Sk.abstr.typeName(args[i]) +
-          "' is not supported for *args[" + i + "].");
+        } else if (Sk.builtin.checkString(args[i])) {
+          stylestring.push(Sk.ffi.remapToJs(args[i]));
+        } else if (Sk.builtin.checkNumber(args[i])) {
+            _unpacked = Sk.ffi.remapToJs(args[i]);
+            var tempArray = [];
+            tempArray.push(_unpacked);
+            /**
+             * Why do we need to push an single item array?
+             *
+             * Each Line is represented as an array of x values and an array of y values
+             * so just calling plot with (x, y, fmt) would result in Line2D([x], [y], fmt)
+             */
+            if (xdata_not_ydata_flag) {
+              xdata.push(tempArray);
+              xdata_not_ydata_flag = false;
+            } else {
+              ydata.push(tempArray);
+              xdata_not_ydata_flag = true;
+            }
+        } else {
+          throw new Sk.builtin.TypeError("'" + Sk.abstr.typeName(args[i]) +
+            "' is not supported for *args[" + i + "].");
+        }
       }
-    }
 
-    /* handle special cases
-      only supplied y
-      only supplied 1 array and stylestring
-    */
-    if ((args.length === 1) || (args.length === 2 && (xdata.length === 1 &&
-      ydata.length === 0))) {
-      // only y supplied
-      xdata.forEach(function(element) {
-        ydata.push(element);
-      });
-      xdata[0] = [];
-    }
-
-    // empty canvas from previous plots
-    create_chart();
-    // create new plot instance, should be replaced with Line2D and then added to the plot
-    if (!plot) {
-      plot = jsplotlib.plot(chart);
-    }
-
-    // create line objects
-    var line;
-
-    if (xdata.length === 1 && ydata.length === 1 && stylestring.length === 0) {
-      // handle case for plot(x, y)
-      line = new jsplotlib.Line2D(xdata[0], ydata[0]);
-      plot.add_line(line);
-    } else if (xdata.length === ydata.length && xdata.length === stylestring.length) {
-      for (i = 0; i < xdata.length; i++) {
-        line = new jsplotlib.Line2D(xdata[i], ydata[i]);
-        var ftm_tuple = jsplotlib._process_plot_format(stylestring[i]);
-        line.update({
-          'linestyle': ftm_tuple.linestyle,
-          'marker': jsplotlib.parse_marker(ftm_tuple.marker),
-          'color': ftm_tuple.color
+      /* handle special cases
+        only supplied y
+        only supplied 1 array and stylestring
+      */
+      if ((args.length === 1) || (args.length === 2 && (xdata.length === 1 &&
+        ydata.length === 0))) {
+        // only y supplied
+        xdata.forEach(function(element) {
+          ydata.push(element);
         });
-        plot.add_line(line);
+        xdata[0] = [];
       }
-    } else {
-      throw new Sk.builtin.ValueError('Cannot parse given combination of "*args"!');
-    }
 
-    // set kwargs that apply for all lines
-    plot.update(kwargs);
+      // empty canvas from previous plots
+      create_chart();
+      // create new plot instance, should be replaced with Line2D and then added to the plot
+      if (!plot) {
+        plot = jsplotlib.plot(chart);
+      }
 
-    // result
-    var result = [];
+      // create line objects
+      var line;
 
-    return new Sk.builtins.tuple(result);
-  };
-  plot_f.co_kwargs = true;
-  mod.plot = new Sk.builtin.func(plot_f);
+      if (xdata.length === 1 && ydata.length === 1 && stylestring.length === 0) {
+        // handle case for plot(x, y)
+        line = new jsplotlib.Line2D(xdata[0], ydata[0]);
+        plot.add_line(line);
+      } else if (xdata.length === ydata.length && xdata.length === stylestring.length) {
+        for (i = 0; i < xdata.length; i++) {
+          line = new jsplotlib.Line2D(xdata[i], ydata[i]);
+          var ftm_tuple = jsplotlib._process_plot_format(stylestring[i]);
+          line.update({
+            'linestyle': ftm_tuple.linestyle,
+            'marker': jsplotlib.parse_marker(ftm_tuple.marker),
+            'color': ftm_tuple.color
+          });
+          plot.add_line(line);
+        }
+      } else {
+        throw new Sk.builtin.ValueError('Cannot parse given combination of "*args"!');
+      }
 
-  var show_f = function() {
-    // call drawing routine
-    if (plot && plot.draw) {
-      plot.draw();
-    } else {
-      throw new Sk.builtin.ValueError(
-        "Can not call show without any plot created.");
-    }
+      // set kwargs that apply for all lines
+      plot.update(kwargs);
 
-    var $div_canvas =  $('#' + Sk.canvas);
-    $div_canvas.show();
+      // result
+      var result = [];
 
-    //saveSvgAsPng(document.querySelector('#' + Sk.canvas + " svg"), "plot.png");
-
-    // add automatically a download link for the picture
-    /*
-    debugger;
-    var svg = document.querySelector('#' + Sk.canvas + " svg");
-    var svgData = new XMLSerializer().serializeToString( svg );
-
-    var canvas = document.createElement("canvas");
-    var svgSize = svg.getBBox != null ? svg.getBBox() : svg.getBoundingClientRect();
-    canvas.width = svgSize.width;
-    canvas.height = svgSize.height;
-
-    canvas.width = $div_canvas.width();
-    canvas.height = $div_canvas.height();
-
-    var ctx = canvas.getContext("2d");
-    var img = document.createElement("img");
-    img.setAttribute("src", "data:image/svg+xml;base64," + btoa( svgData ));
-
-    img.onload = function() {
-        ctx.drawImage(img, 0, 0);
-
-        // Now is done
-        var canvasdata = canvas.toDataURL("image/png" );
-        var a = document.createElement("a");
-        a.download = "plot_"+Date.now()+".png";
-        a.href = canvasdata;
-        document.body.appendChild(a);
-        a.click();
+      return new Sk.builtins.tuple(result);
     };
-    */
-  };
-  mod.show = new Sk.builtin.func(show_f);
+    plot_f.co_kwargs = true;
+    mod.plot = new Sk.builtin.func(plot_f);
 
-  var title_f = function(label, fontdict, loc) {
-    Sk.builtin.pyCheckArgs("title", arguments, 1, 3);
+    var show_f = function() {
+      // call drawing routine
+      if (plot && plot.draw) {
+        plot.draw();
+      } else {
+        throw new Sk.builtin.ValueError(
+          "Can not call show without any plot created.");
+      }
 
-    if (!Sk.builtin.checkString(label)) {
-      throw new Sk.builtin.TypeError("'" + Sk.abstr.typeName(label) +
-        "' is not supported for title.");
-    }
+      var $div_canvas =  $('#' + Sk.canvas);
+      $div_canvas.show();
 
-    var label_unwrap = Sk.ffi.remapToJs(label);
+      //saveSvgAsPng(document.querySelector('#' + Sk.canvas + " svg"), "plot.png");
 
-    create_chart();
-    // create new plot instance, should be replaced with Line2D and then added to the plot
-    if (!plot) {
-      plot = jsplotlib.plot(chart);
-    }
+      // add automatically a download link for the picture
+      /*
+      debugger;
+      var svg = document.querySelector('#' + Sk.canvas + " svg");
+      var svgData = new XMLSerializer().serializeToString( svg );
 
-    if (plot && plot.title) {
-      plot.title(label_unwrap);
-    }
+      var canvas = document.createElement("canvas");
+      var svgSize = svg.getBBox != null ? svg.getBBox() : svg.getBoundingClientRect();
+      canvas.width = svgSize.width;
+      canvas.height = svgSize.height;
 
-    return new Sk.builtin.str(label_unwrap);
-  };
+      canvas.width = $div_canvas.width();
+      canvas.height = $div_canvas.height();
 
-  title_f.co_varnames = ['label', 'fontdict', 'loc', ];
-  title_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
-    Sk.builtin.none.none$
-  ];
-  mod.title = new Sk.builtin.func(title_f);
+      var ctx = canvas.getContext("2d");
+      var img = document.createElement("img");
+      img.setAttribute("src", "data:image/svg+xml;base64," + btoa( svgData ));
 
-  var axis_f = function(label, fontdict, loc) {
-    Sk.builtin.pyCheckArgs("axis", arguments, 0, 3);
+      img.onload = function() {
+          ctx.drawImage(img, 0, 0);
 
-    // when called without any arguments it should return the current axis limits
+          // Now is done
+          var canvasdata = canvas.toDataURL("image/png" );
+          var a = document.createElement("a");
+          a.download = "plot_"+Date.now()+".png";
+          a.href = canvasdata;
+          document.body.appendChild(a);
+          a.click();
+      };
+      */
+    };
+    mod.show = new Sk.builtin.func(show_f);
 
-    if (plot && plot._axes) {
-      console.log(plot._axes);
-    }
+    var title_f = function(label, fontdict, loc) {
+      Sk.builtin.pyCheckArgs("title", arguments, 1, 3);
 
-    // >>> axis(v)
-    // sets the min and max of the x and y axes, with
-    // ``v = [xmin, xmax, ymin, ymax]``.::
+      if (!Sk.builtin.checkString(label)) {
+        throw new Sk.builtin.TypeError("'" + Sk.abstr.typeName(label) +
+          "' is not supported for title.");
+      }
 
-    //The xmin, xmax, ymin, ymax tuple is returned
-    var res;
+      var label_unwrap = Sk.ffi.remapToJs(label);
 
-    return Sk.ffi.remapToPy([]);
-  };
+      create_chart();
+      // create new plot instance, should be replaced with Line2D and then added to the plot
+      if (!plot) {
+        plot = jsplotlib.plot(chart);
+      }
 
-  axis_f.co_varnames = ['label', 'fontdict', 'loc', ];
-  axis_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
-    Sk.builtin.none.none$
-  ];
-  mod.axis = new Sk.builtin.func(axis_f);
+      if (plot && plot.title) {
+        plot.title(label_unwrap);
+      }
 
-  var xlabel_f = function(s, fontdict, loc) {
-    Sk.builtin.pyCheckArgs("xlabel", arguments, 1, 3);
+      return new Sk.builtin.str(label_unwrap);
+    };
 
-    if (!Sk.builtin.checkString(s)) {
-      throw new Sk.builtin.TypeError("'" + Sk.abstr.typeName(s) +
-        "' is not supported for s.");
-    }
+    title_f.co_varnames = ['label', 'fontdict', 'loc', ];
+    title_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
+      Sk.builtin.none.none$
+    ];
+    mod.title = new Sk.builtin.func(title_f);
 
-    create_chart();
-    // create new plot instance, should be replaced with Line2D and then added to the plot
-    if (!plot) {
-      plot = jsplotlib.plot(chart);
-    }
+    var axis_f = function(label, fontdict, loc) {
+      Sk.builtin.pyCheckArgs("axis", arguments, 0, 3);
 
-    if (plot && plot.xlabel) {
-      plot.xlabel(Sk.ffi.remapToJs(s));
-    }
-  };
+      // when called without any arguments it should return the current axis limits
 
-  xlabel_f.co_varnames = ['s', 'fontdict', 'loc', ];
-  xlabel_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
-    Sk.builtin.none.none$
-  ];
-  mod.xlabel = new Sk.builtin.func(xlabel_f);
+      if (plot && plot._axes) {
+        console.log(plot._axes);
+      }
 
-  var ylabel_f = function(s, fontdict, loc) {
-    Sk.builtin.pyCheckArgs("ylabel", arguments, 1, 3);
+      // >>> axis(v)
+      // sets the min and max of the x and y axes, with
+      // ``v = [xmin, xmax, ymin, ymax]``.::
 
-    if (!Sk.builtin.checkString(s)) {
-      throw new Sk.builtin.TypeError("'" + Sk.abstr.typeName(s) +
-        "' is not supported for s.");
-    }
+      //The xmin, xmax, ymin, ymax tuple is returned
+      var res;
 
-    create_chart();
-    // create new plot instance, should be replaced with Line2D and then added to the plot
-    if (!plot) {
-      plot = jsplotlib.plot(chart);
-    }
+      return Sk.ffi.remapToPy([]);
+    };
 
-    if (plot && plot.ylabel) {
-      plot.ylabel(Sk.ffi.remapToJs(s));
-    }
-  };
+    axis_f.co_varnames = ['label', 'fontdict', 'loc', ];
+    axis_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
+      Sk.builtin.none.none$
+    ];
+    mod.axis = new Sk.builtin.func(axis_f);
 
-  ylabel_f.co_varnames = ['s', 'fontdict', 'loc', ];
-  ylabel_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
-    Sk.builtin.none.none$
-  ];
-  mod.ylabel = new Sk.builtin.func(ylabel_f);
+    var xlabel_f = function(s, fontdict, loc) {
+      Sk.builtin.pyCheckArgs("xlabel", arguments, 1, 3);
 
-  // Clear the current figure
-  var clf_f = function() {
-    // clear all
-    chart = null;
-    plot = null;
+      if (!Sk.builtin.checkString(s)) {
+        throw new Sk.builtin.TypeError("'" + Sk.abstr.typeName(s) +
+          "' is not supported for s.");
+      }
 
-    if (Sk.canvas !== undefined) {
-      $('#' + Sk.canvas).empty();
-    }
-  };
+      create_chart();
+      // create new plot instance, should be replaced with Line2D and then added to the plot
+      if (!plot) {
+        plot = jsplotlib.plot(chart);
+      }
 
-  mod.clf = new Sk.builtin.func(clf_f);
+      if (plot && plot.xlabel) {
+        plot.xlabel(Sk.ffi.remapToJs(s));
+      }
+    };
 
-  /* list of not implemented methods */
-  mod.findobj = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "findobj is not yet implemented");
-  });
-  mod.switch_backend = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "switch_backend is not yet implemented");
-  });
-  mod.isinteractive = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "isinteractive is not yet implemented");
-  });
-  mod.ioff = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "ioff is not yet implemented");
-  });
-  mod.ion = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("ion is not yet implemented");
-  });
-  mod.pause = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "pause is not yet implemented");
-  });
-  mod.rc = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("rc is not yet implemented");
-  });
-  mod.rc_context = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "rc_context is not yet implemented");
-  });
-  mod.rcdefaults = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "rcdefaults is not yet implemented");
-  });
-  mod.gci = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("gci is not yet implemented");
-  });
-  mod.sci = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("sci is not yet implemented");
-  });
-  mod.xkcd = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "xkcd is not yet implemented");
-  });
-  mod.figure = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "figure is not yet implemented");
-  });
-  mod.gcf = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("gcf is not yet implemented");
-  });
-  mod.get_fignums = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "get_fignums is not yet implemented");
-  });
-  mod.get_figlabels = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "get_figlabels is not yet implemented");
-  });
-  mod.get_current_fig_manager = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "get_current_fig_manager is not yet implemented");
-  });
-  mod.connect = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "connect is not yet implemented");
-  });
-  mod.disconnect = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "disconnect is not yet implemented");
-  });
-  mod.close = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "close is not yet implemented");
-  });
-  mod.savefig = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "savefig is not yet implemented");
-  });
-  mod.ginput = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "ginput is not yet implemented");
-  });
-  mod.waitforbuttonpress = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "waitforbuttonpress is not yet implemented");
-  });
-  mod.figtext = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "figtext is not yet implemented");
-  });
-  mod.suptitle = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "suptitle is not yet implemented");
-  });
-  mod.figimage = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "figimage is not yet implemented");
-  });
-  mod.figlegend = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "figlegend is not yet implemented");
-  });
-  mod.hold = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "hold is not yet implemented");
-  });
-  mod.ishold = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "ishold is not yet implemented");
-  });
-  mod.over = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "over is not yet implemented");
-  });
-  mod.delaxes = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "delaxes is not yet implemented");
-  });
-  mod.sca = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("sca is not yet implemented");
-  });
-  mod.gca = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("gca is not yet implemented");
-  });
-  mod.subplot = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "subplot is not yet implemented");
-  });
-  mod.subplots = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "subplots is not yet implemented");
-  });
-  mod.subplot2grid = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "subplot2grid is not yet implemented");
-  });
-  mod.twinx = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "twinx is not yet implemented");
-  });
-  mod.twiny = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "twiny is not yet implemented");
-  });
-  mod.subplots_adjust = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "subplots_adjust is not yet implemented");
-  });
-  mod.subplot_tool = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "subplot_tool is not yet implemented");
-  });
-  mod.tight_layout = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "tight_layout is not yet implemented");
-  });
-  mod.box = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("box is not yet implemented");
-  });
-  mod.xlim = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "xlim is not yet implemented");
-  });
-  mod.ylim = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "ylim is not yet implemented");
-  });
-  mod.xscale = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "xscale is not yet implemented");
-  });
-  mod.yscale = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "yscale is not yet implemented");
-  });
-  mod.xticks = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "xticks is not yet implemented");
-  });
-  mod.yticks = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "yticks is not yet implemented");
-  });
-  mod.minorticks_on = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "minorticks_on is not yet implemented");
-  });
-  mod.minorticks_off = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "minorticks_off is not yet implemented");
-  });
-  mod.rgrids = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "rgrids is not yet implemented");
-  });
-  mod.thetagrids = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "thetagrids is not yet implemented");
-  });
-  mod.plotting = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "plotting is not yet implemented");
-  });
-  mod.get_plot_commands = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "get_plot_commands is not yet implemented");
-  });
-  mod.colors = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "colors is not yet implemented");
-  });
-  mod.colormaps = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "colormaps is not yet implemented");
-  });
-  mod._setup_pyplot_info_docstrings = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "_setup_pyplot_info_docstrings is not yet implemented");
-  });
-  mod.colorbar = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "colorbar is not yet implemented");
-  });
-  mod.clim = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "clim is not yet implemented");
-  });
-  mod.set_cmap = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "set_cmap is not yet implemented");
-  });
-  mod.imread = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "imread is not yet implemented");
-  });
-  mod.imsave = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "imsave is not yet implemented");
-  });
-  mod.matshow = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "matshow is not yet implemented");
-  });
-  mod.polar = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "polar is not yet implemented");
-  });
-  mod.plotfile = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "plotfile is not yet implemented");
-  });
-  mod._autogen_docstring = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "_autogen_docstring is not yet implemented");
-  });
-  mod.acorr = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "acorr is not yet implemented");
-  });
-  mod.arrow = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "arrow is not yet implemented");
-  });
-  mod.axhline = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "axhline is not yet implemented");
-  });
-  mod.axhspan = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "axhspan is not yet implemented");
-  });
-  mod.axvline = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "axvline is not yet implemented");
-  });
-  mod.axvspan = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "axvspan is not yet implemented");
-  });
-  mod.bar = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("bar is not yet implemented");
-  });
-  mod.barh = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "barh is not yet implemented");
-  });
-  mod.broken_barh = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "broken_barh is not yet implemented");
-  });
-  mod.boxplot = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "boxplot is not yet implemented");
-  });
-  mod.cohere = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "cohere is not yet implemented");
-  });
-  mod.clabel = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "clabel is not yet implemented");
-  });
-  mod.contour = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "contour is not yet implemented");
-  });
-  mod.contourf = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "contourf is not yet implemented");
-  });
-  mod.csd = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("csd is not yet implemented");
-  });
-  mod.errorbar = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "errorbar is not yet implemented");
-  });
-  mod.eventplot = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "eventplot is not yet implemented");
-  });
-  mod.fill = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "fill is not yet implemented");
-  });
-  mod.fill_between = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "fill_between is not yet implemented");
-  });
-  mod.fill_betweenx = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "fill_betweenx is not yet implemented");
-  });
-  mod.hexbin = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "hexbin is not yet implemented");
-  });
-  mod.hist = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "hist is not yet implemented");
-  });
-  mod.hist2d = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "hist2d is not yet implemented");
-  });
-  mod.hlines = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "hlines is not yet implemented");
-  });
-  mod.loglog = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "loglog is not yet implemented");
-  });
-  mod.magnitude_spectrum = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "magnitude_spectrum is not yet implemented");
-  });
-  mod.pcolor = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "pcolor is not yet implemented");
-  });
-  mod.pcolormesh = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "pcolormesh is not yet implemented");
-  });
-  mod.phase_spectrum = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "phase_spectrum is not yet implemented");
-  });
-  mod.pie = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("pie is not yet implemented");
-  });
-  mod.plot_date = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "plot_date is not yet implemented");
-  });
-  mod.psd = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("psd is not yet implemented");
-  });
-  mod.quiver = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "quiver is not yet implemented");
-  });
-  mod.quiverkey = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "quiverkey is not yet implemented");
-  });
-  mod.scatter = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "scatter is not yet implemented");
-  });
-  mod.semilogx = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "semilogx is not yet implemented");
-  });
-  mod.semilogy = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "semilogy is not yet implemented");
-  });
-  mod.specgram = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "specgram is not yet implemented");
-  });
-  mod.stackplot = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "stackplot is not yet implemented");
-  });
-  mod.stem = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "stem is not yet implemented");
-  });
-  mod.step = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "step is not yet implemented");
-  });
-  mod.streamplot = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "streamplot is not yet implemented");
-  });
-  mod.tricontour = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "tricontour is not yet implemented");
-  });
-  mod.tricontourf = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "tricontourf is not yet implemented");
-  });
-  mod.tripcolor = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "tripcolor is not yet implemented");
-  });
-  mod.triplot = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "triplot is not yet implemented");
-  });
-  mod.vlines = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "vlines is not yet implemented");
-  });
-  mod.xcorr = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "xcorr is not yet implemented");
-  });
-  mod.barbs = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "barbs is not yet implemented");
-  });
-  mod.cla = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("cla is not yet implemented");
-  });
-  mod.grid = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "grid is not yet implemented");
-  });
-  mod.legend = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "legend is not yet implemented");
-  });
-  mod.table = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "table is not yet implemented");
-  });
-  mod.text = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "text is not yet implemented");
-  });
-  mod.annotate = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "annotate is not yet implemented");
-  });
-  mod.ticklabel_format = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "ticklabel_format is not yet implemented");
-  });
-  mod.locator_params = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "locator_params is not yet implemented");
-  });
-  mod.tick_params = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "tick_params is not yet implemented");
-  });
-  mod.margins = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "margins is not yet implemented");
-  });
-  mod.autoscale = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "autoscale is not yet implemented");
-  });
-  mod.autumn = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "autumn is not yet implemented");
-  });
-  mod.cool = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "cool is not yet implemented");
-  });
-  mod.copper = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "copper is not yet implemented");
-  });
-  mod.flag = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "flag is not yet implemented");
-  });
-  mod.gray = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "gray is not yet implemented");
-  });
-  mod.hot = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("hot is not yet implemented");
-  });
-  mod.hsv = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("hsv is not yet implemented");
-  });
-  mod.jet = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError("jet is not yet implemented");
-  });
-  mod.pink = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "pink is not yet implemented");
-  });
-  mod.prism = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "prism is not yet implemented");
-  });
-  mod.spring = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "spring is not yet implemented");
-  });
-  mod.summer = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "summer is not yet implemented");
-  });
-  mod.winter = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "winter is not yet implemented");
-  });
-  mod.spectral = new Sk.builtin.func(function() {
-    throw new Sk.builtin.NotImplementedError(
-      "spectral is not yet implemented");
-  });
+    xlabel_f.co_varnames = ['s', 'fontdict', 'loc', ];
+    xlabel_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
+      Sk.builtin.none.none$
+    ];
+    mod.xlabel = new Sk.builtin.func(xlabel_f);
 
-  return mod;
+    var ylabel_f = function(s, fontdict, loc) {
+      Sk.builtin.pyCheckArgs("ylabel", arguments, 1, 3);
+
+      if (!Sk.builtin.checkString(s)) {
+        throw new Sk.builtin.TypeError("'" + Sk.abstr.typeName(s) +
+          "' is not supported for s.");
+      }
+
+      create_chart();
+      // create new plot instance, should be replaced with Line2D and then added to the plot
+      if (!plot) {
+        plot = jsplotlib.plot(chart);
+      }
+
+      if (plot && plot.ylabel) {
+        plot.ylabel(Sk.ffi.remapToJs(s));
+      }
+    };
+
+    ylabel_f.co_varnames = ['s', 'fontdict', 'loc', ];
+    ylabel_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
+      Sk.builtin.none.none$
+    ];
+    mod.ylabel = new Sk.builtin.func(ylabel_f);
+
+    // Clear the current figure
+    var clf_f = function() {
+      // clear all
+      chart = null;
+      plot = null;
+
+      if (Sk.canvas !== undefined) {
+        $('#' + Sk.canvas).empty();
+      }
+    };
+
+    mod.clf = new Sk.builtin.func(clf_f);
+
+    /* list of not implemented methods */
+    mod.findobj = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "findobj is not yet implemented");
+    });
+    mod.switch_backend = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "switch_backend is not yet implemented");
+    });
+    mod.isinteractive = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "isinteractive is not yet implemented");
+    });
+    mod.ioff = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "ioff is not yet implemented");
+    });
+    mod.ion = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("ion is not yet implemented");
+    });
+    mod.pause = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "pause is not yet implemented");
+    });
+    mod.rc = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("rc is not yet implemented");
+    });
+    mod.rc_context = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "rc_context is not yet implemented");
+    });
+    mod.rcdefaults = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "rcdefaults is not yet implemented");
+    });
+    mod.gci = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("gci is not yet implemented");
+    });
+    mod.sci = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("sci is not yet implemented");
+    });
+    mod.xkcd = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "xkcd is not yet implemented");
+    });
+    mod.figure = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "figure is not yet implemented");
+    });
+    mod.gcf = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("gcf is not yet implemented");
+    });
+    mod.get_fignums = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "get_fignums is not yet implemented");
+    });
+    mod.get_figlabels = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "get_figlabels is not yet implemented");
+    });
+    mod.get_current_fig_manager = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "get_current_fig_manager is not yet implemented");
+    });
+    mod.connect = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "connect is not yet implemented");
+    });
+    mod.disconnect = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "disconnect is not yet implemented");
+    });
+    mod.close = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "close is not yet implemented");
+    });
+    mod.savefig = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "savefig is not yet implemented");
+    });
+    mod.ginput = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "ginput is not yet implemented");
+    });
+    mod.waitforbuttonpress = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "waitforbuttonpress is not yet implemented");
+    });
+    mod.figtext = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "figtext is not yet implemented");
+    });
+    mod.suptitle = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "suptitle is not yet implemented");
+    });
+    mod.figimage = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "figimage is not yet implemented");
+    });
+    mod.figlegend = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "figlegend is not yet implemented");
+    });
+    mod.hold = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "hold is not yet implemented");
+    });
+    mod.ishold = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "ishold is not yet implemented");
+    });
+    mod.over = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "over is not yet implemented");
+    });
+    mod.delaxes = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "delaxes is not yet implemented");
+    });
+    mod.sca = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("sca is not yet implemented");
+    });
+    mod.gca = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("gca is not yet implemented");
+    });
+    mod.subplot = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "subplot is not yet implemented");
+    });
+    mod.subplots = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "subplots is not yet implemented");
+    });
+    mod.subplot2grid = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "subplot2grid is not yet implemented");
+    });
+    mod.twinx = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "twinx is not yet implemented");
+    });
+    mod.twiny = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "twiny is not yet implemented");
+    });
+    mod.subplots_adjust = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "subplots_adjust is not yet implemented");
+    });
+    mod.subplot_tool = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "subplot_tool is not yet implemented");
+    });
+    mod.tight_layout = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "tight_layout is not yet implemented");
+    });
+    mod.box = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("box is not yet implemented");
+    });
+    mod.xlim = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "xlim is not yet implemented");
+    });
+    mod.ylim = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "ylim is not yet implemented");
+    });
+    mod.xscale = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "xscale is not yet implemented");
+    });
+    mod.yscale = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "yscale is not yet implemented");
+    });
+    mod.xticks = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "xticks is not yet implemented");
+    });
+    mod.yticks = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "yticks is not yet implemented");
+    });
+    mod.minorticks_on = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "minorticks_on is not yet implemented");
+    });
+    mod.minorticks_off = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "minorticks_off is not yet implemented");
+    });
+    mod.rgrids = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "rgrids is not yet implemented");
+    });
+    mod.thetagrids = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "thetagrids is not yet implemented");
+    });
+    mod.plotting = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "plotting is not yet implemented");
+    });
+    mod.get_plot_commands = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "get_plot_commands is not yet implemented");
+    });
+    mod.colors = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "colors is not yet implemented");
+    });
+    mod.colormaps = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "colormaps is not yet implemented");
+    });
+    mod._setup_pyplot_info_docstrings = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "_setup_pyplot_info_docstrings is not yet implemented");
+    });
+    mod.colorbar = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "colorbar is not yet implemented");
+    });
+    mod.clim = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "clim is not yet implemented");
+    });
+    mod.set_cmap = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "set_cmap is not yet implemented");
+    });
+    mod.imread = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "imread is not yet implemented");
+    });
+    mod.imsave = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "imsave is not yet implemented");
+    });
+    mod.matshow = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "matshow is not yet implemented");
+    });
+    mod.polar = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "polar is not yet implemented");
+    });
+    mod.plotfile = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "plotfile is not yet implemented");
+    });
+    mod._autogen_docstring = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "_autogen_docstring is not yet implemented");
+    });
+    mod.acorr = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "acorr is not yet implemented");
+    });
+    mod.arrow = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "arrow is not yet implemented");
+    });
+    mod.axhline = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "axhline is not yet implemented");
+    });
+    mod.axhspan = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "axhspan is not yet implemented");
+    });
+    mod.axvline = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "axvline is not yet implemented");
+    });
+    mod.axvspan = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "axvspan is not yet implemented");
+    });
+    mod.bar = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("bar is not yet implemented");
+    });
+    mod.barh = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "barh is not yet implemented");
+    });
+    mod.broken_barh = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "broken_barh is not yet implemented");
+    });
+    mod.boxplot = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "boxplot is not yet implemented");
+    });
+    mod.cohere = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "cohere is not yet implemented");
+    });
+    mod.clabel = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "clabel is not yet implemented");
+    });
+    mod.contour = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "contour is not yet implemented");
+    });
+    mod.contourf = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "contourf is not yet implemented");
+    });
+    mod.csd = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("csd is not yet implemented");
+    });
+    mod.errorbar = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "errorbar is not yet implemented");
+    });
+    mod.eventplot = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "eventplot is not yet implemented");
+    });
+    mod.fill = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "fill is not yet implemented");
+    });
+    mod.fill_between = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "fill_between is not yet implemented");
+    });
+    mod.fill_betweenx = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "fill_betweenx is not yet implemented");
+    });
+    mod.hexbin = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "hexbin is not yet implemented");
+    });
+    mod.hist = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "hist is not yet implemented");
+    });
+    mod.hist2d = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "hist2d is not yet implemented");
+    });
+    mod.hlines = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "hlines is not yet implemented");
+    });
+    mod.loglog = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "loglog is not yet implemented");
+    });
+    mod.magnitude_spectrum = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "magnitude_spectrum is not yet implemented");
+    });
+    mod.pcolor = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "pcolor is not yet implemented");
+    });
+    mod.pcolormesh = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "pcolormesh is not yet implemented");
+    });
+    mod.phase_spectrum = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "phase_spectrum is not yet implemented");
+    });
+    mod.pie = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("pie is not yet implemented");
+    });
+    mod.plot_date = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "plot_date is not yet implemented");
+    });
+    mod.psd = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("psd is not yet implemented");
+    });
+    mod.quiver = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "quiver is not yet implemented");
+    });
+    mod.quiverkey = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "quiverkey is not yet implemented");
+    });
+    mod.scatter = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "scatter is not yet implemented");
+    });
+    mod.semilogx = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "semilogx is not yet implemented");
+    });
+    mod.semilogy = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "semilogy is not yet implemented");
+    });
+    mod.specgram = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "specgram is not yet implemented");
+    });
+    mod.stackplot = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "stackplot is not yet implemented");
+    });
+    mod.stem = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "stem is not yet implemented");
+    });
+    mod.step = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "step is not yet implemented");
+    });
+    mod.streamplot = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "streamplot is not yet implemented");
+    });
+    mod.tricontour = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "tricontour is not yet implemented");
+    });
+    mod.tricontourf = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "tricontourf is not yet implemented");
+    });
+    mod.tripcolor = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "tripcolor is not yet implemented");
+    });
+    mod.triplot = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "triplot is not yet implemented");
+    });
+    mod.vlines = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "vlines is not yet implemented");
+    });
+    mod.xcorr = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "xcorr is not yet implemented");
+    });
+    mod.barbs = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "barbs is not yet implemented");
+    });
+    mod.cla = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("cla is not yet implemented");
+    });
+    mod.grid = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "grid is not yet implemented");
+    });
+    mod.legend = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "legend is not yet implemented");
+    });
+    mod.table = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "table is not yet implemented");
+    });
+    mod.text = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "text is not yet implemented");
+    });
+    mod.annotate = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "annotate is not yet implemented");
+    });
+    mod.ticklabel_format = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "ticklabel_format is not yet implemented");
+    });
+    mod.locator_params = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "locator_params is not yet implemented");
+    });
+    mod.tick_params = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "tick_params is not yet implemented");
+    });
+    mod.margins = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "margins is not yet implemented");
+    });
+    mod.autoscale = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "autoscale is not yet implemented");
+    });
+    mod.autumn = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "autumn is not yet implemented");
+    });
+    mod.cool = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "cool is not yet implemented");
+    });
+    mod.copper = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "copper is not yet implemented");
+    });
+    mod.flag = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "flag is not yet implemented");
+    });
+    mod.gray = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "gray is not yet implemented");
+    });
+    mod.hot = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("hot is not yet implemented");
+    });
+    mod.hsv = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("hsv is not yet implemented");
+    });
+    mod.jet = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError("jet is not yet implemented");
+    });
+    mod.pink = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "pink is not yet implemented");
+    });
+    mod.prism = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "prism is not yet implemented");
+    });
+    mod.spring = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "spring is not yet implemented");
+    });
+    mod.summer = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "summer is not yet implemented");
+    });
+    mod.winter = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "winter is not yet implemented");
+    });
+    mod.spectral = new Sk.builtin.func(function() {
+      throw new Sk.builtin.NotImplementedError(
+        "spectral is not yet implemented");
+    });
+
+    return mod;
+  });
 };
