@@ -1805,7 +1805,7 @@ var $builtinmodule = function(name) {
 
   // import numpy
   var CLASS_NDARRAY = "numpy.ndarray"; // maybe make identifier accessible in numpy module
-  return Sk.misceval.chain(Sk.importModule("numpy"), function(np) {
+  return Sk.misceval.chain(Sk.importModule("numpy", false, true), function(np) {
     var ndarray_f = np['$d'].array.func_code;
     var getitem_f = np['$d'][CLASS_NDARRAY]['__getitem__'].func_code;
     var ndarray = Sk.misceval.callsim(np['$d'].array.func_code, new Sk.builtin.list([1,2,3,4]));
