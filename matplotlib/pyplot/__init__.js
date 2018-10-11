@@ -2032,10 +2032,8 @@ var $builtinmodule = function(name) {
       return new Sk.builtin.str(label_unwrap);
     };
 
-    title_f.co_varnames = ['label', 'fontdict', 'loc', ];
-    title_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
-      Sk.builtin.none.none$
-    ];
+    title_f.co_varnames = ['label', 'fontdict', 'loc'];
+    title_f.$defaults = [Sk.builtin.none.none$, Sk.builtin.none.none$, Sk.builtin.none.none$];
     mod.title = new Sk.builtin.func(title_f);
 
     var axis_f = function(label, fontdict, loc) {
@@ -2057,10 +2055,8 @@ var $builtinmodule = function(name) {
       return Sk.ffi.remapToPy([]);
     };
 
-    axis_f.co_varnames = ['label', 'fontdict', 'loc', ];
-    axis_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
-      Sk.builtin.none.none$
-    ];
+    axis_f.co_varnames = ['label', 'fontdict', 'loc'];
+    axis_f.$defaults = [Sk.builtin.none.none$, Sk.builtin.none.none$, Sk.builtin.none.none$];
     mod.axis = new Sk.builtin.func(axis_f);
 
     var xlabel_f = function(s, fontdict, loc) {
@@ -2082,10 +2078,8 @@ var $builtinmodule = function(name) {
       }
     };
 
-    xlabel_f.co_varnames = ['s', 'fontdict', 'loc', ];
-    xlabel_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
-      Sk.builtin.none.none$
-    ];
+    xlabel_f.co_varnames = ['s', 'fontdict', 'loc'];
+    xlabel_f.$defaults = [Sk.builtin.none.none$, Sk.builtin.none.none$, Sk.builtin.none.none$];
     mod.xlabel = new Sk.builtin.func(xlabel_f);
 
     var ylabel_f = function(s, fontdict, loc) {
@@ -2107,10 +2101,8 @@ var $builtinmodule = function(name) {
       }
     };
 
-    ylabel_f.co_varnames = ['s', 'fontdict', 'loc', ];
-    ylabel_f.$defaults = [null, Sk.builtin.none.none$, Sk.builtin.none.none$,
-      Sk.builtin.none.none$
-    ];
+    ylabel_f.co_varnames = ['s', 'fontdict', 'loc'];
+    ylabel_f.$defaults = [Sk.builtin.none.none$, Sk.builtin.none.none$, Sk.builtin.none.none$];
     mod.ylabel = new Sk.builtin.func(ylabel_f);
 
     // Clear the current figure
