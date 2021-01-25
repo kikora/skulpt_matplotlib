@@ -1314,7 +1314,7 @@ jsplotlib.get_color = function(cs) {
 jsplotlib.make_chart = function(width, height, insert_container, insert_mode,
   attributes) {
   chart_counter++;
-  var DEFAULT_PADDING = 10;
+  var DEFAULT_PADDING = 0;
   insert_container = insert_container || "body";
   width = width - 2 * DEFAULT_PADDING || 500;
   height = height - 2 * DEFAULT_PADDING || 200;
@@ -1336,6 +1336,7 @@ jsplotlib.make_chart = function(width, height, insert_container, insert_mode,
   chart.attr('class', 'chart');
   chart.attr('width', width);
   chart.attr('height', height);
+  chart.attr('viewBox', '-20 -20 420 420');
   chart.attr('chart_count', chart_counter);
 
   // set additional given attributes
@@ -1345,7 +1346,8 @@ jsplotlib.make_chart = function(width, height, insert_container, insert_mode,
     }
   }
 
-  $('.chart#' + attributes.id).css("padding", DEFAULT_PADDING + 'px').css("overflow", "visible");
+  $('.chart#' + attributes.id).css("padding", DEFAULT_PADDING + 'px');
+
   return chart;
 };
 
@@ -1956,6 +1958,9 @@ var $builtinmodule = function(name) {
 
       // result
       var result = [];
+
+      $('svg.chart').attr('width', '100%');
+      $('svg.chart').attr('height', '100%');
 
       return new Sk.builtins.tuple(result);
     };
